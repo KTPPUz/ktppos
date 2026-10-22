@@ -1,0 +1,17 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+const elements=new Map(),node=s=>{if(!elements.has(s))elements.set(s,{innerHTML:'',textContent:'',value:'',checked:false,disabled:false,classList:{add(){},remove(){}},focus(){}});return elements.get(s)};
+const context={console,structuredClone,Intl,Date,Number,String,JSON,Math,Map,Set,Blob,URL,localStorage:{getItem(){return null},setItem(){}},navigator:{onLine:true},confirm(){return true},setTimeout(fn){fn()},window:{addEventListener(){},print(){}},document:{querySelector:node,querySelectorAll(){return[]},addEventListener(){},createElement(){return {click(){}}}}};
+vm.createContext(context);vm.runInContext(fs.readFileSync('dist/app.js','utf8'),context);const run=s=>vm.runInContext(s,context);
+run('for(const n of navs){page=n[0];render()}');
+assert.equal(run('totals().total'),209);assert.equal(run('totals().tax'),13.67);
+run("page='pos';state.discount=20;render()");assert.equal(run('totals().total'),189);assert.equal(run('totals().tax'),12.36);
+run('add(12)');assert.equal(run('state.cart.length'),2,'out of stock must not add');
+run('hold()');assert.equal(run('state.cart.length'),0);assert.equal(run('state.held.length'),1);assert.equal(run('stock(state.products[0])'),24,'holding must not deduct inventory');run('restoreHold(0)');assert.equal(run('totals().total'),189);
+run('payment()');node('#cash').value='100';run('completePayment()');assert.equal(run('state.sales.length'),0,'insufficient cash must not sell');
+node('#cash').value='500';node('#fail-payment').checked=true;run('completePayment()');assert.equal(run('state.sales.length'),0,'failure must not save sale');assert.equal(run('stock(state.products[0])'),24);
+node('#fail-payment').checked=false;run('completePayment()');assert.equal(run('state.sales.length'),1);assert.equal(run('state.sales[0].change'),311);assert.equal(run('stock(state.products[0])'),23);assert.equal(run('state.cart.length'),0);
+node('#refundreason').value='ทดสอบคืนสินค้า';run("refund('BN-00001')");assert.equal(run('stock(state.products[0])'),24);run("refund('BN-00001')");assert.equal(run('stock(state.products[0])'),24,'refund must be idempotent');
+node('#tproduct').value='1';node('#tqty').value='3';node('#tbranch').value='ทองหล่อ';run('createTransfer()');assert.equal(run('stock(state.products[0])'),21);assert.equal(run("stock(state.products[0],'ทองหล่อ')"),24);run("state.branch='ทองหล่อ';receiveTransfer(0)");assert.equal(run('stock(state.products[0])'),27);run('receiveTransfer(0)');assert.equal(run('stock(state.products[0])'),27);
+run("state.role='Cashier'");assert.equal(run("allowed('settings')"),false);assert.equal(run("allowed('staff')"),false);assert.equal(run("allowed('pos')"),true);run("state.role='Auditor / Finance'");assert.equal(run("allowed('pos')"),false);assert.equal(run("allowed('audit')"),true);
+run("state.role='Owner / Admin';query='SKU-001'");assert.equal(run('filteredProducts().length'),1);run("query='8850000000001'");assert.equal(run('filteredProducts().length'),1);run("query='no-such-product'");assert.equal(run('filteredProducts().length'),0);
+console.log('PASS: 12 views, totals/VAT, stock limits, held orders, payment failures, sale/change, refunds, branch transfers, role permissions, SKU/barcode search.');
