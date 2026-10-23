@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<title>Sidebar scroll regression</title>
+<link rel="stylesheet" href="../dist/style.css">
+<div id="app"></div><div id="modal"></div><div id="toast"></div>
+<script src="../dist/app.js"></script>
+<script>
+addEventListener('load', () => {
+  const sidebar = document.querySelector('.sidebar');
+  const profile = sidebar.querySelector('.profile');
+  sidebar.scrollTop = sidebar.scrollHeight;
+  requestAnimationFrame(() => {
+    const bounds = sidebar.getBoundingClientRect();
+    const end = profile.getBoundingClientRect();
+    const css = getComputedStyle(sidebar);
+    const overflow = sidebar.scrollHeight > sidebar.clientHeight;
+    const scrollable = /auto|scroll/.test(css.overflowY);
+    const reachable = end.bottom <= bounds.bottom && end.top >= bounds.top;
+    const pass = reachable && (!overflow || (scrollable && sidebar.scrollTop > 0));
+    const result = {pass, viewport: [innerWidth, innerHeight], overflowY: css.overflowY,
+      scrollTop: sidebar.scrollTop, scrollHeight: sidebar.scrollHeight,
+      clientHeight: sidebar.clientHeight, profileBottom: end.bottom, sidebarBottom: bounds.bottom};
+    document.documentElement.dataset.sidebarResult = pass ? 'PASS' : 'FAIL';
+    const report = document.createElement('pre');
+    report.id = 'sidebar-result';
+    report.textContent = JSON.stringify(result);
+    document.body.append(report);
+  });
+});
+</script>
+</html>
